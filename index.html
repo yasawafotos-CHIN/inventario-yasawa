@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario Yasawa - Sistema de Autopartes</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        /* (Mismo código CSS que antes - muy bonito) */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; 
+            padding: 20px; 
+        }
+        .container {
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        /* ... resto del CSS igual ... */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏗️ INVENTARIO YASAWA</h1>
+            <div class="subtitle">Sistema de Gestión de Autopartes - V 1.0</div>
+        </header>
+        
+        <div class="busqueda">
+            <div class="search-box">
+                <input type="text" id="buscar" placeholder="🔍 Buscar por SKU, descripción, grupo...">
+                <button onclick="buscarProductos()">Buscar</button>
+            </div>
+        </div>
+
+        <div id="productos">
+            <div class="loading">🔄 Cargando productos...</div>
+        </div>
+    </div>
+
+    <script>
+        // TUS CREDENCIALES SUPABASE
+        const supabaseUrl = 'https://svbhtidildglabhgqxwu.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2Ymh0aWRpbGRnbGFiaGdxeHd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTM1MDksImV4cCI6MjA3NzMyOTUwOX0._HL69nSYzf81DNssZOD_3wmHU0MEyYiowX9FXdmfCfc';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Cargar productos al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarProductos();
+            document.getElementById('buscar').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') buscarProductos();
+            });
+        });
+
+        async function cargarProductos() {
+            try {
+                const { data: productos, error } = await supabase.from('productos').select('*').order('sku_principal');
+                if (error) throw error;
+                if (productos.length === 0) {
+                    mostrarMensaje('ℹ️ No hay productos en la base de datos.');
+                    return;
+                }
+                mostrarProductos(productos);
+            } catch (error) {
+                mostrarError('❌ Error: ' + error.message);
+            }
+        }
+
+        async function buscarProductos() {
+            const termino = document.getElementById('buscar').value.trim();
+            try {
+                let query = supabase.from('productos').select('*');
+                if (termino) {
+                    query = query.or(`sku_principal.ilike.%${termino}%,sku_secundario.ilike.%${termino}%,descripcion.ilike.%${termino}%,grupo.ilike.%${termino}%,familia.ilike.%${termino}%`);
+                }
+                const { data: productos, error } = await query;
+                if (error) throw error;
+                mostrarProductos(productos || []);
+            } catch (error) {
+                mostrarError('❌ Error en búsqueda: ' + error.message);
+            }
+        }
+
+        function mostrarProductos(productos) {
+            const contenedor = document.getElementById('productos');
+            if (!productos.length) {
+                contenedor.innerHTML = '<div class="loading">🔍 No se encontraron productos</div>';
+                return;
+            }
+            contenedor.innerHTML = productos.map(producto => `
+                <div class="producto">
+                    ${producto.imagen_url ? 
+                        `<img src="${producto.imagen_url}" alt="${producto.descripcion}" onerror="this.style.display='none'">` : 
+                        '<div style="text-align:center;color:#bdc3c7;margin:20px 0;">📷 Sin imagen</div>'
+                    }
+                    <div class="sku-principal">${producto.sku_principal}</div>
+                    <div class="sku-secundario">${producto.sku_secundario || 'N/A'}</div>
+                    <div class="descripcion">${producto.descripcion}</div>
+                    <div class="categorias">
+                        ${producto.grupo ? `<span class="categoria">📦 ${producto.grupo}</span>` : ''}
+                        ${producto.familia ? `<span class="categoria">🏷️ ${producto.familia}</span>` : ''}
+                    </div>
+                    ${producto.marca ? `<div class="marca">🏭 ${producto.marca}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function mostrarMensaje(mensaje) {
+            document.getElementById('productos').innerHTML = `<div class="loading">${mensaje}</div>`;
+        }
+
+        function mostrarError(mensaje) {
+            document.getElementById('productos').innerHTML = `<div class="error">${mensaje}</div>`;
+        }
+    </script>
+</body>
+</html>
